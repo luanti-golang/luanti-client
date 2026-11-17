@@ -60,7 +60,8 @@ luanti-client packets           list all packet names usable in -filter
 | `-say MSG` | send a chat message after joining (repeatable) |
 | `-duration D` | disconnect after `D` (e.g. `30s`); default: until Ctrl-C |
 | `-quiet` | do not dump anything |
-| `-media` | download all announced media files (off by default) |
+| `-media` | download all announced media files without saving them (off by default) |
+| `-media-dir DIR` | save media files (textures, sounds, models) into `DIR`; implies `-media`. Files are checked against the announced SHA-1, and ones already in `DIR` are not downloaded again |
 | `-view-range N` | wanted view range in map blocks; `0` (default) requests little map data |
 | `-no-block-ack` | do not acknowledge map blocks |
 

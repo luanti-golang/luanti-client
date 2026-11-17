@@ -73,7 +73,8 @@ func runConnect(args []string) int {
 	maxBytes := fs.Int("max-bytes", 16, "bytes of binary fields shown in text format")
 	duration := fs.Duration("duration", 0, "disconnect after this long (0: run until interrupted)")
 	quiet := fs.Bool("quiet", false, "do not dump packets")
-	media := fs.Bool("media", false, "download media files announced by the server")
+	media := fs.Bool("media", false, "download media files announced by the server (without saving them)")
+	mediaDir := fs.String("media-dir", "", "save downloaded media files into this directory (implies -media; skips files already there)")
 	noAck := fs.Bool("no-block-ack", false, "do not acknowledge received map blocks")
 	view := fs.Uint("view-range", 0, "wanted view range in map blocks")
 	var say multiFlag
@@ -110,6 +111,8 @@ func runConnect(args []string) int {
 		Register:        *register,
 		Filter:          filter,
 		RequestMedia:    *media,
+		MediaDir:        *mediaDir,
+		Logf:            func(f string, a ...any) { fmt.Fprintf(os.Stderr, "warning: "+f+"\n", a...) },
 		DisableBlockAck: *noAck,
 		ViewRange:       uint8(*view),
 	}

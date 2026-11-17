@@ -18,8 +18,11 @@ package client
 
 import (
 	"context"
+	"crypto/sha1"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"time"
@@ -54,6 +57,13 @@ type Config struct {
 	// RequestMedia downloads all media files announced by the server. Off by
 	// default: a headless client rarely needs textures and sounds.
 	RequestMedia bool
+	// MediaDir, if set, saves downloaded media files into this directory
+	// (created if needed) and implies RequestMedia. Files are verified against
+	// the SHA-1 the server announced, and files already present with the right
+	// hash are not downloaded again.
+	MediaDir string
+	// Logf receives warnings (e.g. rejected media files). Default: discarded.
+	Logf func(format string, args ...any)
 	// DisableBlockAck stops acknowledging received map blocks. Servers stop
 	// sending blocks once too many are unacknowledged.
 	DisableBlockAck bool
@@ -160,7 +170,8 @@ type Client struct {
 	players  map[string]bool
 	tod      uint16
 
-	awaitBunches int // media bunches still expected (-1: not waiting)
+	announced    map[string][20]byte // media hashes announced by the server
+	awaitBunches int                 // media bunches still expected (-1: not waiting)
 	gotBunches   map[uint16]bool
 
 	handlers map[reflect.Type][]func(protocol.Packet)
@@ -176,6 +187,12 @@ type Client struct {
 
 // New creates a client. Nothing happens until Connect is called.
 func New(cfg Config) *Client {
+	if cfg.MediaDir != "" {
+		cfg.RequestMedia = true
+	}
+	if cfg.Logf == nil {
+		cfg.Logf = func(string, ...any) {}
+	}
 	if cfg.Language == "" {
 		cfg.Language = "en"
 	}
@@ -195,6 +212,7 @@ func New(cfg Config) *Client {
 		handlers:     map[reflect.Type][]func(protocol.Packet){},
 		awaitBunches: -1,
 		gotBunches:   map[uint16]bool{},
+		announced:    map[string][20]byte{},
 		joined:       make(chan struct{}),
 		done:         make(chan struct{}),
 		closing:      make(chan struct{}),
@@ -555,11 +573,20 @@ func (c *Client) handle(m transport.Message, readyArmed *bool, readyTimer *time.
 	case *protocol.ToClientAccessDeniedLegacy:
 		return &AccessDeniedError{Code: protocol.AccessDeniedCustomString, Reason: p.Reason}
 	case *protocol.ToClientAnnounceMedia:
-		if c.cfg.RequestMedia && len(p.Files) > 0 {
-			names := make([]string, len(p.Files))
-			for i, f := range p.Files {
-				names[i] = f.Name
+		var names []string
+		c.mu.Lock()
+		for _, f := range p.Files {
+			c.announced[f.Name] = f.SHA1
+		}
+		c.mu.Unlock()
+		if c.cfg.RequestMedia {
+			for _, f := range p.Files {
+				if !c.haveMedia(f.Name, f.SHA1) {
+					names = append(names, f.Name)
+				}
 			}
+		}
+		if len(names) > 0 {
 			c.mu.Lock()
 			c.awaitBunches = 0
 			c.mu.Unlock()
@@ -570,6 +597,7 @@ func (c *Client) handle(m transport.Message, readyArmed *bool, readyTimer *time.
 			return err
 		}
 	case *protocol.ToClientMedia:
+		c.saveMedia(p)
 		c.mu.Lock()
 		wait := c.awaitBunches >= 0
 		if wait {
@@ -640,6 +668,62 @@ func (c *Client) handle(m transport.Message, readyArmed *bool, readyTimer *time.
 		h(pkt)
 	}
 	return nil
+}
+
+// validMediaName reports whether name is safe to use as a file name: Luanti
+// only allows [A-Za-z0-9_.-], which rules out path separators.
+func validMediaName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '.', r == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// haveMedia reports whether MediaDir already holds the file with this hash.
+func (c *Client) haveMedia(name string, sum [20]byte) bool {
+	if c.cfg.MediaDir == "" || !validMediaName(name) {
+		return false
+	}
+	b, err := os.ReadFile(filepath.Join(c.cfg.MediaDir, name))
+	return err == nil && sha1.Sum(b) == sum
+}
+
+// saveMedia writes received media files into MediaDir.
+func (c *Client) saveMedia(p *protocol.ToClientMedia) {
+	if c.cfg.MediaDir == "" {
+		return
+	}
+	if err := os.MkdirAll(c.cfg.MediaDir, 0o755); err != nil {
+		c.cfg.Logf("media: %v", err)
+		return
+	}
+	for _, f := range p.Files {
+		if !validMediaName(f.Name) {
+			c.cfg.Logf("media: refusing unsafe file name %q", f.Name)
+			continue
+		}
+		c.mu.Lock()
+		want, known := c.announced[f.Name]
+		c.mu.Unlock()
+		if !known {
+			c.cfg.Logf("media: %q was not announced, skipping", f.Name)
+			continue
+		}
+		if sha1.Sum(f.Data) != want {
+			c.cfg.Logf("media: hash mismatch for %q, skipping", f.Name)
+			continue
+		}
+		if err := os.WriteFile(filepath.Join(c.cfg.MediaDir, f.Name), f.Data, 0o644); err != nil {
+			c.cfg.Logf("media: %v", err)
+		}
+	}
 }
 
 func (c *Client) onHello(h *protocol.ToClientHello) error {
