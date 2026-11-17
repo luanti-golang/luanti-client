@@ -588,12 +588,6 @@ func (c *Client) handle(m transport.Message, readyArmed *bool, readyTimer *time.
 		if err := c.Send(&protocol.ToServerInit2{Lang: c.cfg.Language}); err != nil {
 			return err
 		}
-		if err := c.Send(&protocol.ToServerUpdateClientInfo{
-			RenderTargetWidth: 1280, RenderTargetHeight: 720,
-			GUIScaling: 1, HUDScaling: 1, MaxFormspecWidth: 20, MaxFormspecHeight: 12,
-		}); err != nil {
-			return err
-		}
 		readyTimer.Reset(10 * time.Second)
 		*readyArmed = true
 	case *protocol.ToClientAccessDenied:
@@ -899,4 +893,15 @@ func (c *Client) sendReady() error {
 	return c.SendPosition()
 }
 
-func (c *Client) signalJoined() { c.joinOnce.Do(func() { close(c.joined) }) }
+// signalJoined marks the client as in-game. The server drops
+// TOSERVER_UPDATE_CLIENT_INFO until it has processed CLIENT_READY (the client
+// must be "active"), so it is sent here rather than right after INIT2.
+func (c *Client) signalJoined() {
+	c.joinOnce.Do(func() {
+		_ = c.Send(&protocol.ToServerUpdateClientInfo{
+			RenderTargetWidth: 1280, RenderTargetHeight: 720,
+			GUIScaling: 1, HUDScaling: 1, MaxFormspecWidth: 20, MaxFormspecHeight: 12,
+		})
+		close(c.joined)
+	})
+}
