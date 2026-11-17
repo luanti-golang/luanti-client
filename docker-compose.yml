@@ -1,0 +1,14 @@
+services:
+ luanti:
+  image: ghcr.io/luanti-org/luanti:5.18.0
+  user: root
+  volumes:
+   - "world_data:/root/.minetest/worlds/world"
+   - "./dev/minetest.conf:/minetest.conf"
+   - "./dev/minetest_game:/root/.minetest/games/minetest_game"
+  ports:
+   - "30000:30000/udp"
+  entrypoint: "luantiserver --config /minetest.conf --world /world --gameid minetest_game"
+
+volumes:
+  world_data: {}
