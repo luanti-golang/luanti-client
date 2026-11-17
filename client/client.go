@@ -17,8 +17,10 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -62,6 +64,9 @@ type Config struct {
 	// the SHA-1 the server announced, and files already present with the right
 	// hash are not downloaded again.
 	MediaDir string
+	// NodeDefsFile, if set, receives the server's node definitions as indented
+	// JSON as soon as they arrive (see protocol.NodeDefinition for the schema).
+	NodeDefsFile string
 	// Logf receives warnings (e.g. rejected media files). Default: discarded.
 	Logf func(format string, args ...any)
 	// DisableBlockAck stops acknowledging received map blocks. Servers stop
@@ -170,6 +175,7 @@ type Client struct {
 	players  map[string]bool
 	tod      uint16
 
+	nodeDefs     []protocol.NodeDefinition
 	announced    map[string][20]byte // media hashes announced by the server
 	awaitBunches int                 // media bunches still expected (-1: not waiting)
 	gotBunches   map[uint16]bool
@@ -596,6 +602,8 @@ func (c *Client) handle(m transport.Message, readyArmed *bool, readyTimer *time.
 		} else if err := c.sendReady(); err != nil {
 			return err
 		}
+	case *protocol.ToClientNodeDef:
+		c.onNodeDefs(p)
 	case *protocol.ToClientMedia:
 		c.saveMedia(p)
 		c.mu.Lock()
@@ -668,6 +676,56 @@ func (c *Client) handle(m transport.Message, readyArmed *bool, readyTimer *time.
 		h(pkt)
 	}
 	return nil
+}
+
+// NodeDefs returns the node definitions received from the server (nil until
+// they arrive, which happens right after login).
+func (c *Client) NodeDefs() []protocol.NodeDefinition {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.nodeDefs
+}
+
+func (c *Client) onNodeDefs(p *protocol.ToClientNodeDef) {
+	c.mu.Lock()
+	ver := c.protoVer
+	c.mu.Unlock()
+	defs, err := p.NodeDefs(ver)
+	if err != nil {
+		c.cfg.Logf("nodedefs: %v", err)
+		return
+	}
+	c.mu.Lock()
+	c.nodeDefs = defs
+	c.mu.Unlock()
+	if c.cfg.NodeDefsFile != "" {
+		if err := WriteNodeDefsJSON(c.cfg.NodeDefsFile, ver, defs); err != nil {
+			c.cfg.Logf("nodedefs: %v", err)
+		}
+	}
+}
+
+// WriteNodeDefsJSON writes node definitions to path as indented JSON of the
+// form {"protocol_version": N, "count": N, "nodes": [...]}. The file is
+// replaced atomically.
+func WriteNodeDefsJSON(path string, protoVer uint16, defs []protocol.NodeDefinition) error {
+	doc := struct {
+		ProtocolVersion uint16                    `json:"protocol_version"`
+		Count           int                       `json:"count"`
+		Nodes           []protocol.NodeDefinition `json:"nodes"`
+	}{protoVer, len(defs), defs}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(doc); err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, buf.Bytes(), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 // validMediaName reports whether name is safe to use as a file name: Luanti

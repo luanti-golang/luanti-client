@@ -75,6 +75,7 @@ func runConnect(args []string) int {
 	quiet := fs.Bool("quiet", false, "do not dump packets")
 	media := fs.Bool("media", false, "download media files announced by the server (without saving them)")
 	mediaDir := fs.String("media-dir", "", "save downloaded media files into this directory (implies -media; skips files already there)")
+	nodedefs := fs.String("nodedefs", "", "save the server's node definitions as JSON to this file")
 	noAck := fs.Bool("no-block-ack", false, "do not acknowledge received map blocks")
 	view := fs.Uint("view-range", 0, "wanted view range in map blocks")
 	var say multiFlag
@@ -112,6 +113,7 @@ func runConnect(args []string) int {
 		Filter:          filter,
 		RequestMedia:    *media,
 		MediaDir:        *mediaDir,
+		NodeDefsFile:    *nodedefs,
 		Logf:            func(f string, a ...any) { fmt.Fprintf(os.Stderr, "warning: "+f+"\n", a...) },
 		DisableBlockAck: *noAck,
 		ViewRange:       uint8(*view),

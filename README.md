@@ -57,6 +57,7 @@ luanti-client packets           list all packet names usable in -filter
 | `-raw` | additionally dump raw UDP datagrams with MTP framing (seq numbers, acks, split chunks) |
 | `-hex` | append the packet bytes in hex (text format) |
 | `-max-bytes N` | how many bytes of binary fields to show in text format (default 16) |
+| `-nodedefs FILE` | save the server's node definitions (every node type with its groups, tiles, boxes, sounds, ...) as JSON; written right after login, so `-duration 2s` is enough |
 | `-say MSG` | send a chat message after joining (repeatable) |
 | `-duration D` | disconnect after `D` (e.g. `30s`); default: until Ctrl-C |
 | `-quiet` | do not dump anything |

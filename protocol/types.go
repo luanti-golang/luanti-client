@@ -3,11 +3,18 @@ package protocol
 import "fmt"
 
 // V2F is a 2D float vector.
-type V2F struct{ X, Y float32 }
+type V2F struct {
+	X float32 `json:"x"`
+	Y float32 `json:"y"`
+}
 
 // V3F is a 3D float vector. Positions sent by the server are in "BS" units:
 // one node is 10 units.
-type V3F struct{ X, Y, Z float32 }
+type V3F struct {
+	X float32 `json:"x"`
+	Y float32 `json:"y"`
+	Z float32 `json:"z"`
+}
 
 // V2S32 is a 2D integer vector.
 type V2S32 struct{ X, Y int32 }
@@ -22,6 +29,9 @@ type V3S32 struct{ X, Y, Z int32 }
 type Color uint32
 
 func (c Color) String() string { return fmt.Sprintf("#%08x", uint32(c)) }
+
+// MarshalText makes colors appear as "#aarrggbb" in JSON.
+func (c Color) MarshalText() ([]byte, error) { return []byte(c.String()), nil }
 
 // MapNode is a serialized map node (serialization format 29).
 type MapNode struct {

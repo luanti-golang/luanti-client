@@ -36,6 +36,15 @@ func TestLive(t *testing.T) {
 	}
 	time.Sleep(time.Second)
 	c.Close()
+	found := false
+	for _, n := range c.NodeDefs() {
+		if n.Name == "default:stone" {
+			found = n.Groups["cracky"] == 3 && n.DrawType == "normal"
+		}
+	}
+	if !found {
+		t.Error("default:stone missing or wrong in decoded node definitions")
+	}
 	for _, want := range []string{"TOCLIENT_HELLO", "TOCLIENT_AUTH_ACCEPT", "TOCLIENT_NODEDEF", "TOCLIENT_PRIVILEGES"} {
 		if seen[want] == 0 {
 			t.Errorf("never saw %s", want)
