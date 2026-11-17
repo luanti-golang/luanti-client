@@ -32,6 +32,7 @@ import (
 	"luanti-client/protocol"
 	"luanti-client/srp"
 	"luanti-client/transport"
+	"luanti-client/viewerdef"
 )
 
 // Config configures a Client. Only Address and Username are required.
@@ -67,6 +68,9 @@ type Config struct {
 	// NodeDefsFile, if set, receives the server's node definitions as indented
 	// JSON as soon as they arrive (see protocol.NodeDefinition for the schema).
 	NodeDefsFile string
+	// NodeDefsFormat selects the schema of NodeDefsFile: "protocol" (default,
+	// see WriteNodeDefsJSON) or "viewer" (see WriteViewerNodeDefsJSON).
+	NodeDefsFormat string
 	// Logf receives warnings (e.g. rejected media files). Default: discarded.
 	Logf func(format string, args ...any)
 	// DisableBlockAck stops acknowledging received map blocks. Servers stop
@@ -699,7 +703,13 @@ func (c *Client) onNodeDefs(p *protocol.ToClientNodeDef) {
 	c.nodeDefs = defs
 	c.mu.Unlock()
 	if c.cfg.NodeDefsFile != "" {
-		if err := WriteNodeDefsJSON(c.cfg.NodeDefsFile, ver, defs); err != nil {
+		write := WriteNodeDefsJSON
+		if c.cfg.NodeDefsFormat == "viewer" {
+			write = func(path string, _ uint16, defs []protocol.NodeDefinition) error {
+				return WriteViewerNodeDefsJSON(path, defs)
+			}
+		}
+		if err := write(c.cfg.NodeDefsFile, ver, defs); err != nil {
 			c.cfg.Logf("nodedefs: %v", err)
 		}
 	}
@@ -714,11 +724,23 @@ func WriteNodeDefsJSON(path string, protoVer uint16, defs []protocol.NodeDefinit
 		Count           int                       `json:"count"`
 		Nodes           []protocol.NodeDefinition `json:"nodes"`
 	}{protoVer, len(defs), defs}
+	return writeJSONFile(path, doc)
+}
+
+// WriteViewerNodeDefsJSON writes node definitions to path in the schema of
+// luanti-viewer's nodedefs.json: an object of node name -> definition (see
+// package viewerdef). The file is replaced atomically.
+func WriteViewerNodeDefsJSON(path string, defs []protocol.NodeDefinition) error {
+	return writeJSONFile(path, viewerdef.Convert(defs))
+}
+
+// writeJSONFile writes v as indented JSON, replacing path atomically.
+func writeJSONFile(path string, v any) error {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(doc); err != nil {
+	if err := enc.Encode(v); err != nil {
 		return err
 	}
 	tmp := path + ".tmp"

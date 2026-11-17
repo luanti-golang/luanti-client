@@ -76,6 +76,7 @@ func runConnect(args []string) int {
 	media := fs.Bool("media", false, "download media files announced by the server (without saving them)")
 	mediaDir := fs.String("media-dir", "", "save downloaded media files into this directory (implies -media; skips files already there)")
 	nodedefs := fs.String("nodedefs", "", "save the server's node definitions as JSON to this file")
+	nodedefsFormat := fs.String("nodedefs-format", "protocol", "schema of -nodedefs: protocol (all fields, list by id) or viewer (luanti-viewer's nodedefs.json)")
 	noAck := fs.Bool("no-block-ack", false, "do not acknowledge received map blocks")
 	view := fs.Uint("view-range", 0, "wanted view range in map blocks")
 	var say multiFlag
@@ -88,6 +89,10 @@ func runConnect(args []string) int {
 	}
 	if *format != "text" && *format != "json" {
 		fmt.Fprintln(os.Stderr, "error: -format must be text or json")
+		return 2
+	}
+	if *nodedefsFormat != "protocol" && *nodedefsFormat != "viewer" {
+		fmt.Fprintln(os.Stderr, "error: -nodedefs-format must be protocol or viewer")
 		return 2
 	}
 	filter, err := client.ParseFilter(*filterSpec)
@@ -114,6 +119,7 @@ func runConnect(args []string) int {
 		RequestMedia:    *media,
 		MediaDir:        *mediaDir,
 		NodeDefsFile:    *nodedefs,
+		NodeDefsFormat:  *nodedefsFormat,
 		Logf:            func(f string, a ...any) { fmt.Fprintf(os.Stderr, "warning: "+f+"\n", a...) },
 		DisableBlockAck: *noAck,
 		ViewRange:       uint8(*view),
