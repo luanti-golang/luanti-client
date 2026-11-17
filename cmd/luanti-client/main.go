@@ -77,6 +77,7 @@ func runConnect(args []string) int {
 	mediaDir := fs.String("media-dir", "", "save downloaded media files into this directory (implies -media; skips files already there)")
 	nodedefs := fs.String("nodedefs", "", "save the server's node definitions as JSON to this file")
 	nodedefsFormat := fs.String("nodedefs-format", "protocol", "schema of -nodedefs: protocol (all fields, list by id) or viewer (luanti-viewer's nodedefs.json)")
+	mapblockDir := fs.String("mapblock-dir", "", `save received map blocks into this directory as "(x,y,z).json" (luanti-viewer format)`)
 	noAck := fs.Bool("no-block-ack", false, "do not acknowledge received map blocks")
 	view := fs.Uint("view-range", 0, "wanted view range in map blocks")
 	var say multiFlag
@@ -120,6 +121,7 @@ func runConnect(args []string) int {
 		MediaDir:        *mediaDir,
 		NodeDefsFile:    *nodedefs,
 		NodeDefsFormat:  *nodedefsFormat,
+		MapblockDir:     *mapblockDir,
 		Logf:            func(f string, a ...any) { fmt.Fprintf(os.Stderr, "warning: "+f+"\n", a...) },
 		DisableBlockAck: *noAck,
 		ViewRange:       uint8(*view),

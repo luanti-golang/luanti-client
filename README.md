@@ -11,8 +11,11 @@ library to script bots and tests.
   if the server does not know it yet.
 * Dumps every packet in both directions, with a **configurable filter**, as
   text or JSON.
-* No dependencies except [klauspost/compress](https://github.com/klauspost/compress)
-  (Luanti compresses media and definitions with zstd).
+* Saves map blocks, node definitions and media in the export format of
+  [luanti-viewer](https://github.com/BuckarooBanzay/luanti-viewer).
+* Few dependencies: [klauspost/compress](https://github.com/klauspost/compress)
+  (Luanti compresses media and definitions with zstd) and
+  [mapparser](https://github.com/luanti-golang/mapparser) (map blocks).
 
 ## Quick start
 
@@ -64,12 +67,35 @@ luanti-client packets           list all packet names usable in -filter
 | `-quiet` | do not dump anything |
 | `-media` | download all announced media files without saving them (off by default) |
 | `-media-dir DIR` | save media files (textures, sounds, models) into `DIR`; implies `-media`. Files are checked against the announced SHA-1, and ones already in `DIR` are not downloaded again |
+| `-mapblock-dir DIR` | save every received map block into `DIR` as `(x,y,z).json` in the mapblock format of [luanti-viewer](https://github.com/BuckarooBanzay/luanti-viewer) (see package `mapdump`); a block the server sends again replaces its file |
 | `-view-range N` | wanted view range in map blocks; `0` (default) requests little map data |
 | `-no-block-ack` | do not acknowledge map blocks |
 
 Without `-register`, logging in with an unknown name fails with a clear error
 instead of silently creating an account. With `-register`, an existing account
 is simply logged in to.
+
+### Exporting for luanti-viewer
+
+`-mapblock-dir`, `-nodedefs-format viewer` and `-media-dir` together write
+the directory layout luanti-viewer loads (`mapblocks/`, `nodedefs.json`,
+`media/`). The server sends the blocks around the player, as far as
+`-view-range` asks:
+
+```sh
+./luanti-client connect -user alice -password secret -quiet \
+    -view-range 6 -duration 20s \
+    -mapblock-dir export/mapblocks \
+    -nodedefs export/nodedefs.json -nodedefs-format viewer \
+    -media-dir export/media
+```
+
+Map blocks are parsed with
+[mapparser](https://github.com/luanti-golang/mapparser). Over the network
+they carry the server's global content ids, so the node names come from the
+node definitions. Node metadata (inventories, fields) is not part of the
+viewer format and is dropped. Single-node updates (`TOCLIENT_ADDNODE`,
+`TOCLIENT_REMOVENODE`) are not applied to the files.
 
 ### Filters
 
@@ -210,6 +236,8 @@ client/              the helper: connect, login/register, handlers, state, filte
 protocol/            packet structs, encode/decode, formatting
 transport/           UDP transport: peer handshake, channels, reliable + split packets
 srp/                 SRP-6a (SHA-256, 2048-bit) as used by Luanti's login
+viewerdef/           node definitions -> luanti-viewer nodedefs.json
+mapdump/             map blocks -> luanti-viewer mapblock files
 examples/chatbot/    the example above
 ```
 
@@ -226,7 +254,8 @@ reliable delivery, split reassembly, retransmission) against a fake UDP server.
 
 ## Scope
 
-This is a protocol client, not a game client: it does not decode terrain, run
+This is a protocol client, not a game client: it does not keep a world model
+(map blocks are only decoded to save them with `-mapblock-dir`), run
 physics, render, or play sounds. By default it does not download media. Map
 blocks are acknowledged so that the server keeps sending; use `-view-range`
 to ask for more of them.

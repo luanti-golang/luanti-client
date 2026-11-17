@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"luanti-client/mapdump"
 	"luanti-client/protocol"
 	"luanti-client/srp"
 	"luanti-client/transport"
@@ -71,6 +72,10 @@ type Config struct {
 	// NodeDefsFormat selects the schema of NodeDefsFile: "protocol" (default,
 	// see WriteNodeDefsJSON) or "viewer" (see WriteViewerNodeDefsJSON).
 	NodeDefsFormat string
+	// MapblockDir, if set, saves every received map block into this directory
+	// (created if needed) as "(x,y,z).json" in the mapblock format of
+	// luanti-viewer, see package mapdump. A block sent again replaces its file.
+	MapblockDir string
 	// Logf receives warnings (e.g. rejected media files). Default: discarded.
 	Logf func(format string, args ...any)
 	// DisableBlockAck stops acknowledging received map blocks. Servers stop
@@ -167,6 +172,7 @@ type Client struct {
 	mu       sync.Mutex // guards the fields below
 	st       state
 	protoVer uint16
+	serVer   uint8 // map block serialization version from HELLO
 	srpUser  *srp.User
 	mech     uint32
 	mapSeed  uint64
@@ -186,6 +192,8 @@ type Client struct {
 
 	handlers map[reflect.Type][]func(protocol.Packet)
 	anyH     []func(Event)
+
+	blocks *mapdump.Dumper // nil without MapblockDir
 
 	joined   chan struct{}
 	joinOnce sync.Once
@@ -272,6 +280,13 @@ func (c *Client) Connect(ctx context.Context) error {
 	conn, err := transport.Dial(c.cfg.Address, transport.Options{OnDatagram: c.cfg.OnDatagram}, c.cfg.ConnectTimeout)
 	if err != nil {
 		return err
+	}
+	if c.cfg.MapblockDir != "" {
+		// created before the receive loop starts, closed by finish
+		if c.blocks, err = mapdump.New(c.cfg.MapblockDir, c.cfg.Logf); err != nil {
+			_ = conn.Close()
+			return err
+		}
 	}
 	c.conn = conn
 	go c.loop()
@@ -477,6 +492,9 @@ func (c *Client) finish(err error) {
 	if c.conn != nil {
 		_ = c.conn.Close()
 	}
+	if c.blocks != nil {
+		c.blocks.Close() // write the queued blocks before Wait returns
+	}
 	close(c.done)
 }
 
@@ -666,6 +684,12 @@ func (c *Client) handle(m transport.Message, readyArmed *bool, readyTimer *time.
 		}
 		c.mu.Unlock()
 	case *protocol.ToClientBlockData:
+		if c.blocks != nil {
+			c.mu.Lock()
+			serVer := c.serVer
+			c.mu.Unlock()
+			c.blocks.Block(serVer, p.Pos, p.Data)
+		}
 		if !c.cfg.DisableBlockAck {
 			if err := c.Send(&protocol.ToServerGotBlocks{Blocks: []protocol.V3S16{p.Pos}}); err != nil {
 				return err
@@ -702,6 +726,9 @@ func (c *Client) onNodeDefs(p *protocol.ToClientNodeDef) {
 	c.mu.Lock()
 	c.nodeDefs = defs
 	c.mu.Unlock()
+	if c.blocks != nil {
+		c.blocks.SetNodeDefs(defs)
+	}
 	if c.cfg.NodeDefsFile != "" {
 		write := WriteNodeDefsJSON
 		if c.cfg.NodeDefsFormat == "viewer" {
@@ -809,6 +836,7 @@ func (c *Client) saveMedia(p *protocol.ToClientMedia) {
 func (c *Client) onHello(h *protocol.ToClientHello) error {
 	c.mu.Lock()
 	c.protoVer = h.ProtocolVersion
+	c.serVer = h.SerializationVersion
 	c.st = stateAuth
 	c.mu.Unlock()
 
