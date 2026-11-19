@@ -1,4 +1,4 @@
-module luanti-client
+module github.com/luanti-golang/luanti-client
 
 go 1.27
 

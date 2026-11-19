@@ -120,9 +120,13 @@ so `-filter '!blockdata,!active_object*'` is a good start for exploring.
 
 ## Library
 
-The module is named `luanti-client`; import `luanti-client/client` (the helper)
-and `luanti-client/protocol` (the packet structs). Rename the module in
-`go.mod` to your repository path when you publish it.
+The module is `github.com/luanti-golang/luanti-client`; import
+`github.com/luanti-golang/luanti-client/client` (the helper) and
+`github.com/luanti-golang/luanti-client/protocol` (the packet structs):
+
+```
+go get github.com/luanti-golang/luanti-client
+```
 
 ```go
 package main
@@ -134,8 +138,8 @@ import (
 	"os"
 	"os/signal"
 
-	"luanti-client/client"
-	"luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/client"
+	"github.com/luanti-golang/luanti-client/protocol"
 )
 
 func main() {
@@ -207,7 +211,7 @@ Positions are in nodes in the helper API; on the wire they are "BS" units
 
 ### Packets as structs
 
-Every packet of the protocol is a struct in `luanti-client/protocol`, named
+Every packet of the protocol is a struct in `github.com/luanti-golang/luanti-client/protocol`, named
 after the Luanti constant: `TOCLIENT_HP` is `ToClientHP`, `TOSERVER_INTERACT`
 is `ToServerInteract`, and so on. They all implement `protocol.Packet`:
 

@@ -3,7 +3,7 @@ package client
 import (
 	"testing"
 
-	"luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/protocol"
 )
 
 func TestFilter(t *testing.T) {

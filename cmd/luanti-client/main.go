@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"luanti-client/client"
-	"luanti-client/protocol"
-	"luanti-client/transport"
+	"github.com/luanti-golang/luanti-client/client"
+	"github.com/luanti-golang/luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/transport"
 )
 
 const usage = `luanti-client - headless Luanti client

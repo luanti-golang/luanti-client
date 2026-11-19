@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/protocol"
 )
 
 // TestLive runs against a real server, e.g.

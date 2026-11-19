@@ -14,7 +14,7 @@ import (
 
 	"github.com/luanti-golang/mapparser"
 
-	"luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/protocol"
 )
 
 // testdata/blockdata-v29.bin is ToClientBlockData.Data captured from a Luanti

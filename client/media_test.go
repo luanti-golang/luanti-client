@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/protocol"
 )
 
 func TestSaveMedia(t *testing.T) {

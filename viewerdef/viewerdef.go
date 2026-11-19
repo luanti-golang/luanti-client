@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"math"
 
-	"luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/protocol"
 )
 
 // bs is the number of protocol length units (BS) per node.

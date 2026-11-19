@@ -29,11 +29,11 @@ import (
 	"sync"
 	"time"
 
-	"luanti-client/mapdump"
-	"luanti-client/protocol"
-	"luanti-client/srp"
-	"luanti-client/transport"
-	"luanti-client/viewerdef"
+	"github.com/luanti-golang/luanti-client/mapdump"
+	"github.com/luanti-golang/luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/srp"
+	"github.com/luanti-golang/luanti-client/transport"
+	"github.com/luanti-golang/luanti-client/viewerdef"
 )
 
 // Config configures a Client. Only Address and Username are required.

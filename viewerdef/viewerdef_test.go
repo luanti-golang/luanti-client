@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/protocol"
 )
 
 func tile(name string) protocol.TileDef {

@@ -8,8 +8,8 @@ import (
 	"os"
 	"os/signal"
 
-	"luanti-client/client"
-	"luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/client"
+	"github.com/luanti-golang/luanti-client/protocol"
 )
 
 func main() {

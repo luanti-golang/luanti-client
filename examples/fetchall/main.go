@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"luanti-client/client"
-	"luanti-client/mapdump"
-	"luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/client"
+	"github.com/luanti-golang/luanti-client/mapdump"
+	"github.com/luanti-golang/luanti-client/protocol"
 )
 
 func main() {

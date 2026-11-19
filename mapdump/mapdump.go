@@ -28,7 +28,7 @@ import (
 
 	"github.com/luanti-golang/mapparser"
 
-	"luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/protocol"
 )
 
 // nodeCount is the number of nodes in a map block (16^3).

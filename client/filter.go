@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 
-	"luanti-client/protocol"
+	"github.com/luanti-golang/luanti-client/protocol"
 )
 
 // Filter selects which packets are reported to the tap (and thereby dumped).
