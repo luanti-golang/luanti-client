@@ -1,6 +1,7 @@
 // Package client is a headless Luanti client: it connects to a server, logs in
 // (optionally registering the account), joins the game and then lets you
-// observe every packet and send your own.
+// observe every packet and send your own. With Config.SkipJoin it stops before
+// joining, after the definitions and media have arrived.
 //
 //	c := client.New(client.Config{
 //		Address:  "localhost:30000",
@@ -89,6 +90,13 @@ type Config struct {
 	// ConnectTimeout bounds Connect (default 20s). With RequestMedia this
 	// includes downloading all media, which Connect waits for.
 	ConnectTimeout time.Duration
+	// SkipJoin makes Connect return once the definitions and (with
+	// RequestMedia) all media have arrived, without sending CLIENT_READY. The
+	// server then never creates the player: no "joined the game" / "left the
+	// game" messages, no on_joinplayer, no map blocks or chat. Login and
+	// registration still happen. Use it to fetch node definitions and media
+	// without showing up in the game.
+	SkipJoin bool
 }
 
 // Event is one packet that was sent or received.
@@ -160,6 +168,7 @@ const (
 	stateInit     state = iota // INIT sent, waiting for HELLO
 	stateAuth                  // authenticating
 	stateAccepted              // authenticated, loading definitions
+	stateLoaded                // definitions and media received, staying out of the game (SkipJoin)
 	stateJoined                // CLIENT_READY sent
 )
 
@@ -266,6 +275,8 @@ func (c *Client) OnChat(fn func(*protocol.ToClientChatMessage)) { Handle(c, fn) 
 // joins the game. It returns once the server has accepted the client and sent
 // the initial player state (position, privileges, HP), after which packets
 // keep flowing until Close is called or the server disconnects (see Wait).
+// With Config.SkipJoin it returns before joining, as soon as the definitions
+// and media have arrived.
 func (c *Client) Connect(ctx context.Context) error {
 	c.mu.Lock()
 	if c.started {
@@ -877,6 +888,13 @@ func (c *Client) sendReady() error {
 	c.mu.Lock()
 	if c.st != stateAccepted {
 		c.mu.Unlock()
+		return nil
+	}
+	if c.cfg.SkipJoin {
+		// everything up to CLIENT_READY has arrived; stay out of the game
+		c.st = stateLoaded
+		c.mu.Unlock()
+		c.joinOnce.Do(func() { close(c.joined) })
 		return nil
 	}
 	c.st = stateJoined

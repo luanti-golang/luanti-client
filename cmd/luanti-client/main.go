@@ -80,6 +80,7 @@ func runConnect(args []string) int {
 	mapblockDir := fs.String("mapblock-dir", "", `save received map blocks into this directory as "(x,y,z).json" (luanti-viewer format)`)
 	noAck := fs.Bool("no-block-ack", false, "do not acknowledge received map blocks")
 	view := fs.Uint("view-range", 0, "wanted view range in map blocks")
+	skipJoin := fs.Bool("skip-join", false, "stop after the definitions and media arrived, without joining the game (no join/leave messages)")
 	var say multiFlag
 	fs.Var(&say, "say", "chat message to send after joining (repeatable)")
 	_ = fs.Parse(args)
@@ -90,6 +91,10 @@ func runConnect(args []string) int {
 	}
 	if *format != "text" && *format != "json" {
 		fmt.Fprintln(os.Stderr, "error: -format must be text or json")
+		return 2
+	}
+	if *skipJoin && (len(say) > 0 || *mapblockDir != "") {
+		fmt.Fprintln(os.Stderr, "error: -say and -mapblock-dir need a joined player and cannot be used with -skip-join")
 		return 2
 	}
 	if *nodedefsFormat != "protocol" && *nodedefsFormat != "viewer" {
@@ -125,6 +130,7 @@ func runConnect(args []string) int {
 		Logf:            func(f string, a ...any) { fmt.Fprintf(os.Stderr, "warning: "+f+"\n", a...) },
 		DisableBlockAck: *noAck,
 		ViewRange:       uint8(*view),
+		SkipJoin:        *skipJoin,
 	}
 	if !*quiet {
 		cfg.Tap = func(ev client.Event) {
@@ -170,6 +176,10 @@ func runConnect(args []string) int {
 		return 1
 	}
 	fmt.Fprintf(os.Stderr, "connected to %s as %s (protocol %d)\n", *addr, *user, c.ProtocolVersion())
+	if *skipJoin {
+		// definitions and media are in, nothing else arrives without joining
+		c.Close()
+	}
 	for _, m := range say {
 		if err := c.Chat(m); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)

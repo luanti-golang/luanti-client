@@ -70,10 +70,26 @@ luanti-client packets           list all packet names usable in -filter
 | `-mapblock-dir DIR` | save every received map block into `DIR` as `(x,y,z).json` in the mapblock format of [luanti-viewer](https://github.com/BuckarooBanzay/luanti-viewer) (see package `mapdump`); a block the server sends again replaces its file |
 | `-view-range N` | wanted view range in map blocks; `0` (default) requests little map data |
 | `-no-block-ack` | do not acknowledge map blocks |
+| `-skip-join` | stop after the node definitions and media have arrived, without joining the game (below) |
 
 Without `-register`, logging in with an unknown name fails with a clear error
 instead of silently creating an account. With `-register`, an existing account
 is simply logged in to.
+
+### Fetching without joining
+
+The server sends the node definitions and the media announcement right after
+login, before the player joins; only `CLIENT_READY` turns the connection into
+a player. With `-skip-join` (`Config.SkipJoin` in the library) that packet is
+never sent: the client disconnects once the definitions and media have
+arrived, and the server shows no "joined the game" / "left the game" messages
+and runs no `on_joinplayer`. Login (and `-register`) still happen.
+
+```sh
+./luanti-client connect -user alice -password secret -quiet -skip-join \
+    -nodedefs export/nodedefs.json -nodedefs-format viewer \
+    -media-dir export/media
+```
 
 ### Exporting for luanti-viewer
 
