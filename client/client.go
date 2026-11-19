@@ -86,7 +86,8 @@ type Config struct {
 	ViewRange uint8
 	// PositionInterval is how often the player position is sent (default 1s).
 	PositionInterval time.Duration
-	// ConnectTimeout bounds Connect (default 20s).
+	// ConnectTimeout bounds Connect (default 20s). With RequestMedia this
+	// includes downloading all media, which Connect waits for.
 	ConnectTimeout time.Duration
 }
 
@@ -506,7 +507,6 @@ func (c *Client) loop() {
 	defer initTick.Stop()
 	defer posTick.Stop()
 	defer readyTimer.Stop()
-	readyArmed := false
 
 	for {
 		select {
@@ -522,7 +522,7 @@ func (c *Client) loop() {
 				c.finish(c.conn.Err())
 				return
 			}
-			if err := c.handle(m, &readyArmed, readyTimer); err != nil {
+			if err := c.handle(m, readyTimer); err != nil {
 				c.finish(err)
 				return
 			}
@@ -550,7 +550,7 @@ func (c *Client) loop() {
 	}
 }
 
-func (c *Client) handle(m transport.Message, readyArmed *bool, readyTimer *time.Timer) error {
+func (c *Client) handle(m transport.Message, readyTimer *time.Timer) error {
 	c.mu.Lock()
 	ver := c.protoVer
 	c.mu.Unlock()
@@ -588,13 +588,16 @@ func (c *Client) handle(m transport.Message, readyArmed *bool, readyTimer *time.
 		if err := c.Send(&protocol.ToServerInit2{Lang: c.cfg.Language}); err != nil {
 			return err
 		}
+		// fallback for servers that never announce media
 		readyTimer.Reset(10 * time.Second)
-		*readyArmed = true
 	case *protocol.ToClientAccessDenied:
 		return &AccessDeniedError{Code: p.Code, Reason: p.Reason}
 	case *protocol.ToClientAccessDeniedLegacy:
 		return &AccessDeniedError{Code: protocol.AccessDeniedCustomString, Reason: p.Reason}
 	case *protocol.ToClientAnnounceMedia:
+		// the announcement decides when to send CLIENT_READY: right away, or
+		// after the last requested media bunch, however long the download takes
+		readyTimer.Stop()
 		var names []string
 		c.mu.Lock()
 		for _, f := range p.Files {
