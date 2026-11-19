@@ -175,6 +175,13 @@ func main() {
 This is [examples/chatbot](examples/chatbot/main.go); run it with
 `go run ./examples/chatbot`.
 
+[examples/fetchall](examples/fetchall/main.go) shows how to collect the node
+definitions, map blocks and media files in memory instead of writing them to
+disk: register typed handlers for `ToClientNodeDef` (decoded via
+`c.NodeDefs()`), `ToClientBlockData` (decode with `mapdump.Convert`) and
+`ToClientMedia` before `Connect`, and set `Config.RequestMedia` and
+`Config.ViewRange`. Run it with `go run ./examples/fetchall`.
+
 ### Helper API
 
 | | |
